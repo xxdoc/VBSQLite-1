@@ -1,6 +1,5 @@
 Attribute VB_Name = "SQLiteBase"
 Option Explicit
-Option Compare Text
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByRef Destination As Any, ByRef Source As Any, ByVal Length As Long)
 Private Declare Function VirtualAlloc Lib "kernel32" (ByRef lpAddress As Long, ByVal dwSize As Long, ByVal flAllocType As Long, ByVal flProtect As Long) As Long
 Private Declare Function VirtualFree Lib "kernel32" (ByRef lpAddress As Long, ByVal dwSize As Long, ByVal dwFreeType As Long) As Long
@@ -56,18 +55,18 @@ SQLiteCreateCDeclCallback = ASMWrapper
 End Function
 
 Public Sub SQLiteOverloadBuiltinFunctions(ByVal hDB As Long)
-Const STR_LOWER_UTF8 As Currency = 35335066.8108@
-Const STR_UPPER_UTF8 As Currency = 35335020.9621@
-Const STR_LIKE_UTF8 As Currency = 116256.1868@
-Const STR_NOCASE_UTF8 As Currency = 7622387953.2366@
+Const STR_LOWER_UTF8 As Currency = 49132859.7868@
+Const STR_UPPER_UTF8 As Currency = 49132813.9381@
+Const STR_LIKE_UTF8 As Currency = 170153.8156@
+Const STR_NOCASE_UTF8 As Currency = 11154622955.0958@
 If hDB <> 0 Then
     If SQLiteCDeclCallbackLowerUpper <> 0 Then
-        stub_sqlite3_create_function_v2 hDB, VarPtr(STR_LOWER_UTF8), 1, SQLITE_UTF8 Or SQLITE_DETERMINISTIC, 0, SQLiteCDeclCallbackLowerUpper, 0, 0, 0
-        stub_sqlite3_create_function_v2 hDB, VarPtr(STR_LOWER_UTF8), 1, SQLITE_UTF16 Or SQLITE_DETERMINISTIC, 0, SQLiteCDeclCallbackLowerUpper, 0, 0, 0
-        stub_sqlite3_create_function_v2 hDB, VarPtr(STR_UPPER_UTF8), 1, SQLITE_UTF8 Or SQLITE_DETERMINISTIC, 1, SQLiteCDeclCallbackLowerUpper, 0, 0, 0
-        stub_sqlite3_create_function_v2 hDB, VarPtr(STR_UPPER_UTF8), 1, SQLITE_UTF16 Or SQLITE_DETERMINISTIC, 1, SQLiteCDeclCallbackLowerUpper, 0, 0, 0
+        stub_sqlite3_create_function_v2 hDB, VarPtr(STR_LOWER_UTF8), 1, SQLITE_UTF8 Or SQLITE_DETERMINISTIC Or SQLITE_INNOCUOUS, 0, SQLiteCDeclCallbackLowerUpper, 0, 0, 0
+        stub_sqlite3_create_function_v2 hDB, VarPtr(STR_LOWER_UTF8), 1, SQLITE_UTF16 Or SQLITE_DETERMINISTIC Or SQLITE_INNOCUOUS, 0, SQLiteCDeclCallbackLowerUpper, 0, 0, 0
+        stub_sqlite3_create_function_v2 hDB, VarPtr(STR_UPPER_UTF8), 1, SQLITE_UTF8 Or SQLITE_DETERMINISTIC Or SQLITE_INNOCUOUS, 1, SQLiteCDeclCallbackLowerUpper, 0, 0, 0
+        stub_sqlite3_create_function_v2 hDB, VarPtr(STR_UPPER_UTF8), 1, SQLITE_UTF16 Or SQLITE_DETERMINISTIC Or SQLITE_INNOCUOUS, 1, SQLiteCDeclCallbackLowerUpper, 0, 0, 0
     End If
-    If SQLiteCDeclCallbackLike <> 0 Then stub_sqlite3_create_function_v2 hDB, VarPtr(STR_LIKE_UTF8), 2, SQLITE_UTF8 Or SQLITE_DETERMINISTIC, 0, SQLiteCDeclCallbackLike, 0, 0, 0
+    If SQLiteCDeclCallbackLike <> 0 Then stub_sqlite3_create_function_v2 hDB, VarPtr(STR_LIKE_UTF8), 2, SQLITE_UTF8 Or SQLITE_DETERMINISTIC Or SQLITE_INNOCUOUS, 0, SQLiteCDeclCallbackLike, 0, 0, 0
     If SQLiteCDeclCallbackNoCaseCollating <> 0 Then stub_sqlite3_create_collation_v2 hDB, VarPtr(STR_NOCASE_UTF8), SQLITE_UTF8, 0, SQLiteCDeclCallbackNoCaseCollating, 0
 End If
 End Sub
@@ -114,7 +113,7 @@ If cArg = 2 Then
         End Select
         Pos = Pos - 1
     Loop
-    If szString Like szPattern Then ' Option Compare Text
+    If TextCompareLike(szString, szPattern) Then
         stub_sqlite3_result_int pCtx, 1
     Else
         stub_sqlite3_result_int pCtx, 0

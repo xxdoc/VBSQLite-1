@@ -122,7 +122,7 @@ Public Const SQLITE_OPEN_MAIN_JOURNAL As Long = &H800               ' VFS only
 Public Const SQLITE_OPEN_TEMP_JOURNAL As Long = &H1000              ' VFS only
 Public Const SQLITE_OPEN_SUBJOURNAL As Long = &H2000                ' VFS only
 Public Const SQLITE_OPEN_MASTER_JOURNAL As Long = &H4000            ' VFS only
-Public Const SQLITE_OPEN_NOMUTEX As Long = &H8000                   ' OK for sqlite3_open_v2()
+Public Const SQLITE_OPEN_NOMUTEX As Long = &H8000&                  ' OK for sqlite3_open_v2()
 Public Const SQLITE_OPEN_FULLMUTEX As Long = &H10000                ' OK for sqlite3_open_v2()
 Public Const SQLITE_OPEN_SHAREDCACHE As Long = &H20000              ' OK for sqlite3_open_v2()
 Public Const SQLITE_OPEN_PRIVATECACHE As Long = &H40000             ' OK for sqlite3_open_v2()
@@ -220,6 +220,8 @@ Public Const SQLITE_FCNTL_LOCK_TIMEOUT As Long = 34
 Public Const SQLITE_FCNTL_DATA_VERSION As Long = 35
 Public Const SQLITE_FCNTL_SIZE_LIMIT As Long = 36
 Public Const SQLITE_FCNTL_CKPT_DONE As Long = 37
+Public Const SQLITE_FCNTL_RESERVE_BYTES As Long = 38
+Public Const SQLITE_FCNTL_CKPT_START As Long = 39
 
 ' xAccess VFS Method Flags
 Public Const SQLITE_ACCESS_EXISTS As Long = 0
@@ -348,6 +350,11 @@ Public Const SQLITE_PREPARE_PERSISTENT As Long = &H1
 Public Const SQLITE_PREPARE_NORMALIZE As Long = &H2
 Public Const SQLITE_PREPARE_NO_VTAB As Long = &H4
 
+' Transaction States
+Public Const SQLITE_TXN_NONE As Long = 0
+Public Const SQLITE_TXN_READ As Long = 1
+Public Const SQLITE_TXN_WRITE As Long = 2
+
 ' Virtual Table Scan Flags
 Public Const SQLITE_INDEX_SCAN_UNIQUE As Long = 1
 
@@ -451,6 +458,11 @@ Public Const SQLITE_SCANSTAT_SELECTID As Long = 5
 ' Serialize Flags
 Public Const SQLITE_SERIALIZE_NOCOPY As Long = &H1
 
+' Deserialize Flags
+Public Const SQLITE_DESERIALIZE_FREEONCLOSE As Long = 1
+Public Const SQLITE_DESERIALIZE_RESIZEABLE As Long = 2
+Public Const SQLITE_DESERIALIZE_READONLY As Long = 4
+
 ' Win32 Directory Types
 Public Const SQLITE_WIN32_DATA_DIRECTORY_TYPE As Long = 1
 Public Const SQLITE_WIN32_TEMP_DIRECTORY_TYPE As Long = 2
@@ -464,7 +476,7 @@ Public Const SQLITE_MAX_COMPOUND_SELECT As Long = 500
 Public Const SQLITE_MAX_VDBE_OP As Long = 25000
 Public Const SQLITE_MAX_FUNCTION_ARG As Long = 127
 Public Const SQLITE_MAX_ATTACHED As Long = 10
-Public Const SQLITE_MAX_VARIABLE_NUMBER As Long = 999
+Public Const SQLITE_MAX_VARIABLE_NUMBER As Long = 32766             ' 999 for versions prior to 3.32.0 (2020-05-22)
 Public Const SQLITE_MAX_PAGE_SIZE As Long = 65536
 Public Const SQLITE_MAX_DEFAULT_PAGE_SIZE As Long = 8192
 Public Const SQLITE_MAX_PAGE_COUNT As Long = 1073741823
