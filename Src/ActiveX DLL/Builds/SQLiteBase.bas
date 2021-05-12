@@ -66,7 +66,10 @@ If hDB <> 0 Then
         stub_sqlite3_create_function_v2 hDB, VarPtr(STR_UPPER_UTF8), 1, SQLITE_UTF8 Or SQLITE_DETERMINISTIC Or SQLITE_INNOCUOUS, 1, SQLiteCDeclCallbackLowerUpper, 0, 0, 0
         stub_sqlite3_create_function_v2 hDB, VarPtr(STR_UPPER_UTF8), 1, SQLITE_UTF16 Or SQLITE_DETERMINISTIC Or SQLITE_INNOCUOUS, 1, SQLiteCDeclCallbackLowerUpper, 0, 0, 0
     End If
-    If SQLiteCDeclCallbackLike <> 0 Then stub_sqlite3_create_function_v2 hDB, VarPtr(STR_LIKE_UTF8), 2, SQLITE_UTF8 Or SQLITE_DETERMINISTIC Or SQLITE_INNOCUOUS, 0, SQLiteCDeclCallbackLike, 0, 0, 0
+    If SQLiteCDeclCallbackLike <> 0 Then
+        stub_sqlite3_create_function_v2 hDB, VarPtr(STR_LIKE_UTF8), 2, SQLITE_UTF8 Or SQLITE_DETERMINISTIC Or SQLITE_INNOCUOUS, 0, SQLiteCDeclCallbackLike, 0, 0, 0
+        stub_sqlite3_create_function_v2 hDB, VarPtr(STR_LIKE_UTF8), 3, SQLITE_UTF8, 0, 0, 0, 0, 0
+    End If
     If SQLiteCDeclCallbackNoCaseCollating <> 0 Then stub_sqlite3_create_collation_v2 hDB, VarPtr(STR_NOCASE_UTF8), SQLITE_UTF8, 0, SQLiteCDeclCallbackNoCaseCollating, 0
 End If
 End Sub
@@ -101,18 +104,6 @@ If cArg = 2 Then
     Dim szPattern As String, szString As String
     szPattern = SQLiteUTF8PtrToStr(stub_sqlite3_value_text(pValue(0)), stub_sqlite3_value_bytes(pValue(0)))
     szString = SQLiteUTF8PtrToStr(stub_sqlite3_value_text(pValue(1)), stub_sqlite3_value_bytes(pValue(1)))
-    Dim Pos As Long, Length As Long
-    Length = Len(szPattern)
-    Pos = Length
-    Do While Pos > 0
-        Select Case Mid$(szPattern, Pos, 1)
-            Case "_"
-                Mid$(szPattern, Pos, 1) = "?"
-            Case "%"
-                Mid$(szPattern, Pos, 1) = "*"
-        End Select
-        Pos = Pos - 1
-    Loop
     If TextCompareLike(szString, szPattern) Then
         stub_sqlite3_result_int pCtx, 1
     Else
@@ -123,6 +114,12 @@ End Function
 
 Public Function SQLiteFunctionNoCaseCollating(ByVal pNotUsed As Long, ByVal nKey1 As Long, ByVal pKey1 As Long, ByVal nKey2 As Long, ByVal pKey2 As Long) As Long
 SQLiteFunctionNoCaseCollating = StrComp(SQLiteUTF8PtrToStr(pKey1, nKey1), SQLiteUTF8PtrToStr(pKey2, nKey2), vbTextCompare)
+End Function
+
+Public Function SQLiteProgressHandlerCallback(ByVal pArg As ISQLiteProgressHandler) As Long
+Dim Cancel As Boolean
+pArg.Callback Cancel
+If Cancel = False Then SQLiteProgressHandlerCallback = 0 Else SQLiteProgressHandlerCallback = 1
 End Function
 
 Public Function SQLiteBlobToByteArray(ByVal Ptr As Long, ByVal Size As Long) As Variant
