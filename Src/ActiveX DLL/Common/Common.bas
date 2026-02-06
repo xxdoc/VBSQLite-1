@@ -137,7 +137,6 @@ uCount As Long
 dwTimeout As Long
 End Type
 Private Const LF_FACESIZE As Long = 32
-Private Const DEFAULT_QUALITY As Long = 0
 Private Type LOGFONT
 LFHeight As Long
 LFWidth As Long
@@ -156,6 +155,7 @@ LFFaceName(0 To ((LF_FACESIZE * 2) - 1)) As Byte
 End Type
 #If VBA7 Then
 Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByRef Destination As Any, ByRef Source As Any, ByVal Length As Long)
+Private Declare PtrSafe Sub GetSystemTime Lib "kernel32" (ByRef lpSystemTime As SYSTEMTIME)
 Private Declare PtrSafe Function ArrPtr Lib "msvbvm60.dll" Alias "VarPtr" (ByRef Var() As Any) As LongPtr
 Private Declare PtrSafe Function lstrlen Lib "kernel32" Alias "lstrlenW" (ByVal lpString As LongPtr) As Long
 Private Declare PtrSafe Function lstrcpy Lib "kernel32" Alias "lstrcpyW" (ByVal lpString1 As LongPtr, ByVal lpString2 As LongPtr) As LongPtr
@@ -166,10 +166,14 @@ Private Declare PtrSafe Function GetFileAttributes Lib "kernel32" Alias "GetFile
 Private Declare PtrSafe Function SetFileAttributes Lib "kernel32" Alias "SetFileAttributesW" (ByVal lpFileName As LongPtr, ByVal dwFileAttributes As Long) As Long
 Private Declare PtrSafe Function GetFileAttributesEx Lib "kernel32" Alias "GetFileAttributesExW" (ByVal lpFileName As LongPtr, ByVal fInfoLevelId As Long, ByVal lpFileInformation As LongPtr) As Long
 Private Declare PtrSafe Function FileTimeToLocalFileTime Lib "kernel32" (ByVal lpFileTime As LongPtr, ByVal lpLocalFileTime As LongPtr) As Long
+Private Declare PtrSafe Function LocalFileTimeToFileTime Lib "kernel32" (ByVal lpLocalFileTime As LongPtr, ByVal lpFileTime As LongPtr) As Long
 Private Declare PtrSafe Function FileTimeToSystemTime Lib "kernel32" (ByVal lpFileTime As LongPtr, ByVal lpSystemTime As LongPtr) As Long
+Private Declare PtrSafe Function SystemTimeToFileTime Lib "kernel32" (ByVal lpSystemTime As LongPtr, ByVal lpFileTime As LongPtr) As Long
 Private Declare PtrSafe Function FindFirstFile Lib "kernel32" Alias "FindFirstFileW" (ByVal lpFileName As LongPtr, ByRef lpFindFileData As WIN32_FIND_DATA) As LongPtr
 Private Declare PtrSafe Function FindNextFile Lib "kernel32" Alias "FindNextFileW" (ByVal hFindFile As LongPtr, ByRef lpFindFileData As WIN32_FIND_DATA) As Long
 Private Declare PtrSafe Function FindClose Lib "kernel32" (ByVal hFindFile As LongPtr) As Long
+Private Declare PtrSafe Function SystemTimeToTzSpecificLocalTime Lib "kernel32" (ByVal lpTimeZoneInformation As LongPtr, ByVal lpUniversalTime As LongPtr, ByVal lpLocalTime As LongPtr) As Long
+Private Declare PtrSafe Function TzSpecificLocalTimeToSystemTime Lib "kernel32" (ByVal lpTimeZoneInformation As LongPtr, ByVal lpLocalTime As LongPtr, ByVal lpUniversalTime As LongPtr) As Long
 Private Declare PtrSafe Function GetWindowRect Lib "user32" (ByVal hWnd As LongPtr, ByRef lpRect As RECT) As Long
 Private Declare PtrSafe Function MonitorFromWindow Lib "user32" (ByVal hWnd As LongPtr, ByVal dwFlags As Long) As LongPtr
 Private Declare PtrSafe Function GetMonitorInfo Lib "user32" Alias "GetMonitorInfoW" (ByVal hMonitor As LongPtr, ByRef lpMI As MONITORINFO) As Long
@@ -202,7 +206,7 @@ Private Declare PtrSafe Function GetSystemDirectory Lib "kernel32" Alias "GetSys
 Private Declare PtrSafe Function GetSystemMetrics Lib "user32" (ByVal nIndex As Long) As Long
 Private Declare PtrSafe Function GetMenu Lib "user32" (ByVal hWnd As LongPtr) As LongPtr
 Private Declare PtrSafe Function GetCursorPos Lib "user32" (ByRef lpPoint As POINTAPI) As Long
-Private Declare PtrSafe Function WindowFromPoint Lib "user32" (ByVal XY As Currency) As Long
+Private Declare PtrSafe Function WindowFromPoint Lib "user32" (ByVal XY As Currency) As LongPtr
 Private Declare PtrSafe Function GetCapture Lib "user32" () As LongPtr
 Private Declare PtrSafe Function GetWindowThreadProcessId Lib "user32" (ByVal hWnd As LongPtr, ByVal lpdwProcessId As LongPtr) As Long
 Private Declare PtrSafe Function FlashWindowEx Lib "user32" (ByRef pFWI As FLASHWINFO) As Long
@@ -236,6 +240,7 @@ Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" (ByVal CodeP
 Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, ByVal lpMultiByteStr As LongPtr, ByVal cbMultiByte As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long) As Long
 #Else
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByRef Destination As Any, ByRef Source As Any, ByVal Length As Long)
+Private Declare Sub GetSystemTime Lib "kernel32" (ByRef lpSystemTime As SYSTEMTIME)
 Private Declare Function ArrPtr Lib "msvbvm60.dll" Alias "VarPtr" (ByRef Var() As Any) As Long
 Private Declare Function lstrlen Lib "kernel32" Alias "lstrlenW" (ByVal lpString As Long) As Long
 Private Declare Function lstrcpy Lib "kernel32" Alias "lstrcpyW" (ByVal lpString1 As Long, ByVal lpString2 As Long) As Long
@@ -246,10 +251,14 @@ Private Declare Function GetFileAttributes Lib "kernel32" Alias "GetFileAttribut
 Private Declare Function SetFileAttributes Lib "kernel32" Alias "SetFileAttributesW" (ByVal lpFileName As Long, ByVal dwFileAttributes As Long) As Long
 Private Declare Function GetFileAttributesEx Lib "kernel32" Alias "GetFileAttributesExW" (ByVal lpFileName As Long, ByVal fInfoLevelId As Long, ByVal lpFileInformation As Long) As Long
 Private Declare Function FileTimeToLocalFileTime Lib "kernel32" (ByVal lpFileTime As Long, ByVal lpLocalFileTime As Long) As Long
+Private Declare Function LocalFileTimeToFileTime Lib "kernel32" (ByVal lpLocalFileTime As Long, ByVal lpFileTime As Long) As Long
 Private Declare Function FileTimeToSystemTime Lib "kernel32" (ByVal lpFileTime As Long, ByVal lpSystemTime As Long) As Long
+Private Declare Function SystemTimeToFileTime Lib "kernel32" (ByVal lpSystemTime As Long, ByVal lpFileTime As Long) As Long
 Private Declare Function FindFirstFile Lib "kernel32" Alias "FindFirstFileW" (ByVal lpFileName As Long, ByRef lpFindFileData As WIN32_FIND_DATA) As Long
 Private Declare Function FindNextFile Lib "kernel32" Alias "FindNextFileW" (ByVal hFindFile As Long, ByRef lpFindFileData As WIN32_FIND_DATA) As Long
 Private Declare Function FindClose Lib "kernel32" (ByVal hFindFile As Long) As Long
+Private Declare Function SystemTimeToTzSpecificLocalTime Lib "kernel32" (ByVal lpTimeZoneInformation As Long, ByVal lpUniversalTime As Long, ByVal lpLocalTime As Long) As Long
+Private Declare Function TzSpecificLocalTimeToSystemTime Lib "kernel32" (ByVal lpTimeZoneInformation As Long, ByVal lpLocalTime As Long, ByVal lpUniversalTime As Long) As Long
 Private Declare Function GetWindowRect Lib "user32" (ByVal hWnd As Long, ByRef lpRect As RECT) As Long
 Private Declare Function MonitorFromWindow Lib "user32" (ByVal hWnd As Long, ByVal dwFlags As Long) As Long
 Private Declare Function GetMonitorInfo Lib "user32" Alias "GetMonitorInfoW" (ByVal hMonitor As Long, ByRef lpMI As MONITORINFO) As Long
@@ -317,7 +326,7 @@ Private Declare Function MultiByteToWideChar Lib "kernel32" (ByVal CodePage As L
 #End If
 
 ' (VB-Overwrite)
-Public Function MsgBox(ByVal Prompt As String, Optional ByVal Buttons As VbMsgBoxStyle = vbOKOnly, Optional ByVal Title As String) As VbMsgBoxResult
+Public Function MsgBox(ByVal Prompt As String, Optional ByVal Buttons As VbMsgBoxStyle = vbOKOnly, Optional ByVal Title As Variant) As VbMsgBoxResult
 Dim MSGBOXP As MSGBOXPARAMS
 With MSGBOXP
 .cbSize = LenB(MSGBOXP)
@@ -332,8 +341,14 @@ Else
 End If
 .hInstance = App.hInstance
 .lpszText = StrPtr(Prompt)
-If Title = vbNullString Then Title = App.Title
-.lpszCaption = StrPtr(Title)
+Dim Caption As String
+If IsMissing(Title) Then
+    Caption = App.Title
+Else
+    Caption = Title
+End If
+If StrPtr(Caption) = NULL_PTR Then Caption = ""
+.lpszCaption = StrPtr(Caption)
 .dwStyle = Buttons
 End With
 MsgBox = MessageBoxIndirect(MSGBOXP)
@@ -534,10 +549,10 @@ Public Function AppPath() As String
 If InIDE() = False Then
     Const MAX_PATH_W As Long = 32767
     Dim Buffer As String, RetVal As Long
-    Buffer = String(MAX_PATH, vbNullChar)
+    Buffer = String$(MAX_PATH, vbNullChar)
     RetVal = GetModuleFileName(NULL_PTR, StrPtr(Buffer), MAX_PATH)
     If RetVal = MAX_PATH Then ' Path > MAX_PATH
-        Buffer = String(MAX_PATH_W, vbNullChar)
+        Buffer = String$(MAX_PATH_W, vbNullChar)
         RetVal = GetModuleFileName(NULL_PTR, StrPtr(Buffer), MAX_PATH_W)
     End If
     If RetVal > 0 Then
@@ -555,10 +570,10 @@ Public Function AppEXEName() As String
 If InIDE() = False Then
     Const MAX_PATH_W As Long = 32767
     Dim Buffer As String, RetVal As Long
-    Buffer = String(MAX_PATH, vbNullChar)
+    Buffer = String$(MAX_PATH, vbNullChar)
     RetVal = GetModuleFileName(NULL_PTR, StrPtr(Buffer), MAX_PATH)
     If RetVal = MAX_PATH Then ' Path > MAX_PATH
-        Buffer = String(MAX_PATH_W, vbNullChar)
+        Buffer = String$(MAX_PATH_W, vbNullChar)
         RetVal = GetModuleFileName(NULL_PTR, StrPtr(Buffer), MAX_PATH_W)
     End If
     If RetVal > 0 Then
@@ -608,10 +623,10 @@ Static Done As Boolean, Value As VS_FIXEDFILEINFO
 If Done = False Then
     Const MAX_PATH_W As Long = 32767
     Dim Buffer As String, RetVal As Long
-    Buffer = String(MAX_PATH, vbNullChar)
+    Buffer = String$(MAX_PATH, vbNullChar)
     RetVal = GetModuleFileName(NULL_PTR, StrPtr(Buffer), MAX_PATH)
     If RetVal = MAX_PATH Then ' Path > MAX_PATH
-        Buffer = String(MAX_PATH_W, vbNullChar)
+        Buffer = String$(MAX_PATH_W, vbNullChar)
         RetVal = GetModuleFileName(NULL_PTR, StrPtr(Buffer), MAX_PATH_W)
     End If
     If RetVal > 0 Then
@@ -634,6 +649,14 @@ End If
 LSet GetAppVersionInfo = Value
 End Function
 
+Public Function HasClipboardText() As Boolean
+Const CF_UNICODETEXT As Long = 13
+If OpenClipboard(NULL_PTR) <> 0 Then
+    HasClipboardText = CBool(IsClipboardFormatAvailable(CF_UNICODETEXT) <> 0)
+    CloseClipboard
+End If
+End Function
+
 Public Function GetClipboardText() As String
 Const CF_UNICODETEXT As Long = 13
 Dim lpText As LongPtr, lpMem As LongPtr, Length As Long
@@ -645,7 +668,7 @@ If OpenClipboard(NULL_PTR) <> 0 Then
             If lpMem <> NULL_PTR Then
                 Length = lstrlen(lpMem)
                 If Length > 0 Then
-                    GetClipboardText = String(Length, vbNullChar)
+                    GetClipboardText = String$(Length, vbNullChar)
                     lstrcpy StrPtr(GetClipboardText), lpMem
                 End If
                 GlobalUnlock lpMem
@@ -793,6 +816,48 @@ Select Case MousePointer
     Case 16
         Const IDC_WAITCD As Long = 32663 ' Undocumented
         MousePointerID = IDC_WAITCD
+    Case 17
+        Const IDC_PIN As Long = 32671
+        MousePointerID = IDC_PIN
+    Case 18
+        Const IDC_PERSON As Long = 32672
+        MousePointerID = IDC_PERSON
+    Case 19
+        Const IDC_PEN As Long = 32631 ' Undocumented
+        MousePointerID = IDC_PEN
+    Case 20
+        Const IDC_SCROLLN As Long = 32655 ' Undocumented
+        MousePointerID = IDC_SCROLLN
+    Case 21
+        Const IDC_SCROLLS As Long = 32656 ' Undocumented
+        MousePointerID = IDC_SCROLLS
+    Case 22
+        Const IDC_SCROLLE As Long = 32658 ' Undocumented
+        MousePointerID = IDC_SCROLLE
+    Case 23
+        Const IDC_SCROLLW As Long = 32657 ' Undocumented
+        MousePointerID = IDC_SCROLLW
+    Case 24
+        Const IDC_SCROLLNS As Long = 32652 ' Undocumented
+        MousePointerID = IDC_SCROLLNS
+    Case 25
+        Const IDC_SCROLLWE As Long = 32653 ' Undocumented
+        MousePointerID = IDC_SCROLLWE
+    Case 26
+        Const IDC_SCROLLNW As Long = 32659 ' Undocumented
+        MousePointerID = IDC_SCROLLNW
+    Case 27
+        Const IDC_SCROLLNE As Long = 32660 ' Undocumented
+        MousePointerID = IDC_SCROLLNE
+    Case 28
+        Const IDC_SCROLLSW As Long = 32661 ' Undocumented
+        MousePointerID = IDC_SCROLLSW
+    Case 29
+        Const IDC_SCROLLSE As Long = 32662 ' Undocumented
+        MousePointerID = IDC_SCROLLSE
+    Case 30
+        Const IDC_SCROLLALL As Long = 32654 ' Undocumented
+        MousePointerID = IDC_SCROLLALL
 End Select
 End Function
 
@@ -832,19 +897,31 @@ End If
 End Function
 
 #If VBA7 Then
-Public Function CreateGDIFontFromOLEFont(ByVal Font As IFont) As LongPtr
+Public Function CreateGDIFontFromOLEFont(ByVal Font As IFont, Optional ByVal Quality As Long) As LongPtr
 #Else
-Public Function CreateGDIFontFromOLEFont(ByVal Font As IFont) As Long
+Public Function CreateGDIFontFromOLEFont(ByVal Font As IFont, Optional ByVal Quality As Long) As Long
 #End If
 If Font Is Nothing Then Exit Function
 Dim LF As LOGFONT
 ' hFont will be cleared when the IFont reference goes out of scope or is set to nothing.
 GetObjectAPI Font.hFont, LenB(LF), LF
+LF.LFQuality = Quality
 CreateGDIFontFromOLEFont = CreateFontIndirect(LF)
 End Function
 
 Public Function CloneOLEFont(ByVal Font As IFont) As StdFont
 If Not Font Is Nothing Then Font.Clone CloneOLEFont
+End Function
+
+#If VBA7 Then
+Public Function CloneGDIFont(ByVal hFont As LongPtr) As LongPtr
+#Else
+Public Function CloneGDIFont(ByVal hFont As Long) As Long
+#End If
+If hFont = NULL_PTR Then Exit Function
+Dim LF As LOGFONT
+GetObjectAPI hFont, LenB(LF), LF
+CloneGDIFont = CreateFontIndirect(LF)
 End Function
 
 Public Function GetNumberGroupDigit() As String
@@ -854,6 +931,101 @@ End Function
 
 Public Function GetDecimalChar() As String
 GetDecimalChar = Mid$(CStr(1.1), 2, 1)
+End Function
+
+Public Function CurrentUTC() As Date
+Dim ST As SYSTEMTIME
+GetSystemTime ST
+CurrentUTC = DateSerial(ST.wYear, ST.wMonth, ST.wDay) + TimeSerial(ST.wHour, ST.wMinute, ST.wSecond)
+End Function
+
+Public Function FromUTC(ByVal UTCDate As Date) As Date
+Dim UT As SYSTEMTIME, LT As SYSTEMTIME
+UT.wYear = VBA.Year(UTCDate)
+UT.wMonth = VBA.Month(UTCDate)
+UT.wDay = VBA.Day(UTCDate)
+UT.wDayOfWeek = VBA.Weekday(UTCDate)
+UT.wHour = VBA.Hour(UTCDate)
+UT.wMinute = VBA.Minute(UTCDate)
+UT.wSecond = VBA.Second(UTCDate)
+UT.wMilliseconds = 0
+If SystemTimeToTzSpecificLocalTime(NULL_PTR, VarPtr(UT), VarPtr(LT)) <> 0 Then
+    FromUTC = DateSerial(LT.wYear, LT.wMonth, LT.wDay) + TimeSerial(LT.wHour, LT.wMinute, LT.wSecond)
+Else
+    FromUTC = UTCDate
+End If
+End Function
+
+Public Function ToUTC(ByVal LocalDate As Date) As Date
+Dim LT As SYSTEMTIME, UT As SYSTEMTIME
+LT.wYear = VBA.Year(LocalDate)
+LT.wMonth = VBA.Month(LocalDate)
+LT.wDay = VBA.Day(LocalDate)
+LT.wDayOfWeek = VBA.Weekday(LocalDate)
+LT.wHour = VBA.Hour(LocalDate)
+LT.wMinute = VBA.Minute(LocalDate)
+LT.wSecond = VBA.Second(LocalDate)
+LT.wMilliseconds = 0
+If TzSpecificLocalTimeToSystemTime(NULL_PTR, VarPtr(LT), VarPtr(UT)) <> 0 Then
+    ToUTC = DateSerial(UT.wYear, UT.wMonth, UT.wDay) + TimeSerial(UT.wHour, UT.wMinute, UT.wSecond)
+Else
+    ToUTC = LocalDate
+End If
+End Function
+
+Public Function FromJulianDay(ByVal JulianDay As Double) As Date
+Const JULIANDAY_OFFSET As Double = 2415018.5
+If JulianDay >= 1757584.5 And JulianDay < 5373484.5 Then
+    If JulianDay >= JULIANDAY_OFFSET Then
+        FromJulianDay = CDate(JulianDay - JULIANDAY_OFFSET)
+    Else
+        Dim DateValue As Double, Temp As Double
+        DateValue = JulianDay - JULIANDAY_OFFSET
+        Temp = Int(DateValue)
+        FromJulianDay = CDate(Temp + (Temp - DateValue))
+    End If
+Else
+    Err.Raise 5
+End If
+End Function
+
+Public Function ToJulianDay(ByVal OADate As Date) As Double
+Const JULIANDAY_OFFSET As Double = 2415018.5
+If CDbl(OADate) >= 0# Then
+    ToJulianDay = CDbl(OADate) + JULIANDAY_OFFSET
+Else
+    Dim Temp As Double
+    Temp = Fix(CDbl(OADate))
+    ToJulianDay = Temp - (CDbl(OADate) - Temp) + JULIANDAY_OFFSET
+End If
+End Function
+
+Public Function FromUnixEpoch(ByVal UnixEpoch As Double) As Date
+Const UNIXEPOCH_OFFSET As Double = 25569#
+If UnixEpoch >= -59010681600# And UnixEpoch < 253402300800# Then
+    Dim DateValue As Double
+    DateValue = (UnixEpoch / 86400#) + UNIXEPOCH_OFFSET
+    If DateValue >= 0# Then
+        FromUnixEpoch = CDate(DateValue)
+    Else
+        Dim Temp As Double
+        Temp = Int(DateValue)
+        FromUnixEpoch = CDate(Temp + (Temp - DateValue))
+    End If
+Else
+    Err.Raise 5
+End If
+End Function
+
+Public Function ToUnixEpoch(ByVal OADate As Date) As Double
+Const UNIXEPOCH_OFFSET As Double = 25569#
+If CDbl(OADate) >= 0# Then
+    ToUnixEpoch = (CDbl(OADate) - UNIXEPOCH_OFFSET) * 86400#
+Else
+    Dim Temp As Double
+    Temp = Fix(CDbl(OADate))
+    ToUnixEpoch = (Temp - (CDbl(OADate) - Temp) - UNIXEPOCH_OFFSET) * 86400#
+End If
 End Function
 
 Public Function IsFormLoaded(ByVal FormName As String) As Boolean
@@ -872,7 +1044,7 @@ Public Function GetWindowTitle(ByVal hWnd As LongPtr) As String
 Public Function GetWindowTitle(ByVal hWnd As Long) As String
 #End If
 Dim Buffer As String
-Buffer = String(GetWindowTextLength(hWnd) + 1, vbNullChar)
+Buffer = String$(GetWindowTextLength(hWnd) + 1, vbNullChar)
 GetWindowText hWnd, StrPtr(Buffer), Len(Buffer)
 GetWindowTitle = Left$(Buffer, Len(Buffer) - 1)
 End Function
@@ -883,7 +1055,7 @@ Public Function GetWindowClassName(ByVal hWnd As LongPtr) As String
 Public Function GetWindowClassName(ByVal hWnd As Long) As String
 #End If
 Dim Buffer As String, RetVal As Long
-Buffer = String(256, vbNullChar)
+Buffer = String$(256, vbNullChar)
 RetVal = GetClassName(hWnd, StrPtr(Buffer), Len(Buffer))
 If RetVal > 0 Then GetWindowClassName = Left$(Buffer, RetVal)
 End Function
@@ -965,7 +1137,7 @@ Public Function GetWindowsDir() As String
 Static Done As Boolean, Value As String
 If Done = False Then
     Dim Buffer As String
-    Buffer = String(MAX_PATH, vbNullChar)
+    Buffer = String$(MAX_PATH, vbNullChar)
     If GetSystemWindowsDirectory(StrPtr(Buffer), MAX_PATH) > 0 Then
         Value = Left$(Buffer, InStr(Buffer, vbNullChar) - 1)
         Value = Value & IIf(Right$(Value, 1) = "\", "", "\")
@@ -979,7 +1151,7 @@ Public Function GetSystemDir() As String
 Static Done As Boolean, Value As String
 If Done = False Then
     Dim Buffer As String
-    Buffer = String(MAX_PATH, vbNullChar)
+    Buffer = String$(MAX_PATH, vbNullChar)
     If GetSystemDirectory(StrPtr(Buffer), MAX_PATH) > 0 Then
         Value = Left$(Buffer, InStr(Buffer, vbNullChar) - 1)
         Value = Value & IIf(Right$(Value, 1) = "\", "", "\")
@@ -1098,6 +1270,24 @@ End Function
 
 Public Function MakeDWord(ByVal LoWord As Integer, ByVal HiWord As Integer) As Long
 MakeDWord = (CLng(HiWord) * &H10000) Or (LoWord And &HFFFF&)
+End Function
+
+#If VBA7 Then
+Public Function Get_Wheel_Delta_wParam(ByVal wParam As LongPtr) As Long
+#Else
+Public Function Get_Wheel_Delta_wParam(ByVal wParam As Long) As Long
+#End If
+#If Win64 Then
+Dim LoDWord As Long
+If wParam And &H80000000^ Then
+    LoDWord = CLng(wParam Or &HFFFFFFFF00000000^)
+Else
+    LoDWord = CLng(wParam And &HFFFFFFFF^)
+End If
+Get_Wheel_Delta_wParam = HiWord(LoDWord)
+#Else
+Get_Wheel_Delta_wParam = HiWord(wParam)
+#End If
 End Function
 
 #If VBA7 Then
@@ -1271,6 +1461,29 @@ If (VT And vbArray) = vbArray Then
 End If
 End Function
 #End If
+
+Public Function NaN() As Double
+CopyMemory ByVal UnsignedAdd(VarPtr(NaN), 6), &HFFF8, 2
+End Function
+
+Public Function NaN32() As Single
+CopyMemory ByVal VarPtr(NaN32), &HFFC00000, 4
+End Function
+
+Public Function IsNaN(ByRef Expression As Variant) As Boolean
+Select Case VarType(Expression)
+    Case vbDouble
+        Dim Dbl As Double, IntArr(0 To 3) As Integer
+        Dbl = Expression
+        CopyMemory IntArr(0), Dbl, 8
+        If (IntArr(3) And &H7FF0) = &H7FF0 And (IntArr(0) <> 0 Or IntArr(1) <> 0 Or IntArr(2) <> 0 Or (IntArr(3) And &HF) <> 0) Then IsNaN = True
+    Case vbSingle
+        Dim Sng As Single, Lng As Long
+        Sng = Expression
+        CopyMemory Lng, Sng, 4
+        If (Lng And &H7F800000) = &H7F800000 And (Lng And &H7FFFFF) <> 0 Then IsNaN = True
+End Select
+End Function
 
 Public Function DPI_X() As Long
 Const LOGPIXELSX As Long = 88
@@ -1482,7 +1695,7 @@ If .Handle <> NULL_PTR Then
     If CY = 0 Then CY = CHimetricToPixel_Y(.Height)
     If .Type = vbPicTypeIcon Then
         Const DI_NORMAL As Long = &H3
-        DrawIconEx hDC, X, Y, .Handle, CX, CY, 0, 0, DI_NORMAL
+        DrawIconEx hDC, X, Y, .Handle, CX, CY, 0, NULL_PTR, DI_NORMAL
     Else
         Dim HasAlpha As Boolean
         If .Type = vbPicTypeBitmap Then

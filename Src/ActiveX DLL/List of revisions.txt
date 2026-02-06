@@ -1,5 +1,62 @@
 List of revisions:
 
+15-Dec-2025
+- Revision update. (Version 1.2.39)
+
+09-Jun-2025
+- Revision update. (Version 1.2.38)
+
+21-Jan-2025
+- Revision update. (Version 1.2.37)
+
+12-Nov-2024
+- Revision update. (Version 1.2.36)
+
+10-Nov-2024
+- Revision update. (Version 1.2.35)
+
+10-Nov-2024
+- Revision update. (Version 1.2.34)
+
+09-Nov-2024
+- Revision update. (Version 1.2.33)
+
+09-Nov-2024
+- Revision update. (Version 1.2.32)
+
+08-Nov-2024
+- Revision update. (Version 1.2.31)
+
+07-Nov-2024
+- Revision update. (Version 1.2.30)
+
+05-Nov-2024
+- Revision update. (Version 1.2.29)
+
+05-Nov-2024
+- Revision update. (Version 1.2.28)
+
+05-Nov-2024
+- Revision update. (Version 1.2.27)
+
+04-Nov-2024
+- Revision update. (Version 1.2.26)
+
+03-Nov-2024
+- Revision update. (Version 1.2.25)
+
+22-Oct-2024
+- Revision update. (Version 1.2.24)
+
+08-Oct-2024
+- Revision update. (Version 1.2.23)
+
+22-Apr-2024
+- Revision update. (Version 1.2.22)
+
+24-Jan-2024
+- Revision update. (Version 1.2.21)
+
 08-Nov-2023
 - Revision update. (Version 1.2.20)
 

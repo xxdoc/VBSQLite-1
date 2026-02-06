@@ -155,6 +155,7 @@ Public Const SQLITE_DETERMINISTIC As Long = &H800
 Public Const SQLITE_DIRECTONLY As Long = &H80000
 Public Const SQLITE_SUBTYPE As Long = &H100000
 Public Const SQLITE_INNOCUOUS As Long = &H200000
+Public Const SQLITE_RESULT_SUBTYPE As Long = &H1000000
 
 ' Device Characteristics
 Public Const SQLITE_IOCAP_ATOMIC As Long = &H1
@@ -172,6 +173,7 @@ Public Const SQLITE_IOCAP_UNDELETABLE_WHEN_OPEN As Long = &H800
 Public Const SQLITE_IOCAP_POWERSAFE_OVERWRITE As Long = &H1000
 Public Const SQLITE_IOCAP_IMMUTABLE As Long = &H2000
 Public Const SQLITE_IOCAP_BATCH_ATOMIC As Long = &H4000
+Public Const SQLITE_IOCAP_SUBPAGE_READ As Long = &H8000&
 
 ' File Locking Levels
 Public Const SQLITE_LOCK_NONE As Long = 0
@@ -227,6 +229,8 @@ Public Const SQLITE_FCNTL_CKPT_START As Long = 39
 Public Const SQLITE_FCNTL_EXTERNAL_READER As Long = 40
 Public Const SQLITE_FCNTL_CKSM_FILE As Long = 41
 Public Const SQLITE_FCNTL_RESET_CACHE As Long = 42
+Public Const SQLITE_FCNTL_NULL_IO As Long = 43
+Public Const SQLITE_FCNTL_BLOCK_ON_CONNECT As Long = 44
 
 ' xAccess VFS Method Flags
 Public Const SQLITE_ACCESS_EXISTS As Long = 0
@@ -291,6 +295,9 @@ Public Const SQLITE_DBCONFIG_LEGACY_FILE_FORMAT As Long = 1016
 Public Const SQLITE_DBCONFIG_TRUSTED_SCHEMA As Long = 1017
 Public Const SQLITE_DBCONFIG_STMT_SCANSTATUS As Long = 1018
 Public Const SQLITE_DBCONFIG_REVERSE_SCANORDER As Long = 1019
+Public Const SQLITE_DBCONFIG_ENABLE_ATTACH_CREATE As Long = 1020
+Public Const SQLITE_DBCONFIG_ENABLE_ATTACH_WRITE As Long = 1021
+Public Const SQLITE_DBCONFIG_ENABLE_COMMENTS As Long = 1022
 
 ' Authorizer Return Codes
 Public Const SQLITE_DENY As Long = 1
@@ -356,6 +363,7 @@ Public Const SQLITE_LIMIT_WORKER_THREADS As Long = 11
 Public Const SQLITE_PREPARE_PERSISTENT As Long = &H1
 Public Const SQLITE_PREPARE_NORMALIZE As Long = &H2
 Public Const SQLITE_PREPARE_NO_VTAB As Long = &H4
+Public Const SQLITE_PREPARE_DONT_LOG As Long = &H10
 
 ' Transaction States
 Public Const SQLITE_TXN_NONE As Long = 0
@@ -485,7 +493,7 @@ Public Const SQLITE_MAX_SQL_LENGTH As Long = 1000000000
 Public Const SQLITE_MAX_EXPR_DEPTH As Long = 1000
 Public Const SQLITE_MAX_COMPOUND_SELECT As Long = 500
 Public Const SQLITE_MAX_VDBE_OP As Long = 250000000
-Public Const SQLITE_MAX_FUNCTION_ARG As Long = 127
+Public Const SQLITE_MAX_FUNCTION_ARG As Long = 1000                 ' 127 for versions prior to 3.48.0 (2025-01-14)
 Public Const SQLITE_MAX_ATTACHED As Long = 10
 Public Const SQLITE_MAX_VARIABLE_NUMBER As Long = 32766             ' 999 for versions prior to 3.32.0 (2020-05-22)
 Public Const SQLITE_MAX_PAGE_SIZE As Long = 65536
