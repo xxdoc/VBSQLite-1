@@ -47,9 +47,24 @@
 
 #if defined(_MSC_VER) && _MSC_VER<1300
 typedef unsigned long ULONG_PTR;
+#include "sqlite3\stdint\stdint.h"
+#endif
+
+#ifndef INFINITY
+#define INFINITY HUGE_VAL
 #endif
 
 #include "sqlite3\sqlite3.c"
 #if defined(SQLITE_CORE)
 #include "sqlite3\ext\regexp.c"
 #endif
+
+/*
+** __stdcall wrapper functions for sqlite3_db_config
+*/
+#ifdef _WIN32
+__declspec(dllexport)
+#endif
+SQLITE_API int sqlite3_db_config_fp_digits(sqlite3 *db, int NewDigits, int* pOldDigits) {
+  return sqlite3_db_config(db, SQLITE_DBCONFIG_FP_DIGITS, NewDigits, pOldDigits);
+}

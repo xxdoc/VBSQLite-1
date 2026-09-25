@@ -20,9 +20,24 @@ lpszText As LongPtr
 lpszCaption As LongPtr
 dwStyle As Long
 lpszIcon As LongPtr
-dwContextHelpID As Long
+dwContextHelpID As LongPtr
 lpfnMsgBoxCallback As LongPtr
 dwLanguageId As Long
+End Type
+Private Type HELPINFO
+cbSize As Long
+ContextType As Long
+CtlID As Long
+hItemHandle As LongPtr
+dwContextID As LongPtr
+PT As Currency
+End Type
+Private Type HELPDATA
+ID As Long
+HelpFile As String
+Context As Long
+WinHelpHandle As LongPtr
+HtmlHelpCookie As Long
 End Type
 Private Type RECT
 Left As Long
@@ -160,6 +175,7 @@ Private Declare PtrSafe Function ArrPtr Lib "msvbvm60.dll" Alias "VarPtr" (ByRef
 Private Declare PtrSafe Function lstrlen Lib "kernel32" Alias "lstrlenW" (ByVal lpString As LongPtr) As Long
 Private Declare PtrSafe Function lstrcpy Lib "kernel32" Alias "lstrcpyW" (ByVal lpString1 As LongPtr, ByVal lpString2 As LongPtr) As LongPtr
 Private Declare PtrSafe Function MessageBoxIndirect Lib "user32" Alias "MessageBoxIndirectW" (ByRef lpMsgBoxParams As MSGBOXPARAMS) As Long
+Private Declare PtrSafe Function MessageBox Lib "user32" Alias "MessageBoxW" (ByVal hWnd As LongPtr, ByVal lpText As LongPtr, ByVal lpCaption As LongPtr, ByVal wType As Long) As Long
 Private Declare PtrSafe Function GetActiveWindow Lib "user32" () As LongPtr
 Private Declare PtrSafe Function GetForegroundWindow Lib "user32" () As LongPtr
 Private Declare PtrSafe Function GetFileAttributes Lib "kernel32" Alias "GetFileAttributesW" (ByVal lpFileName As LongPtr) As Long
@@ -238,6 +254,8 @@ Private Declare PtrSafe Function OleCreatePictureIndirect Lib "oleaut32" (ByRef 
 Private Declare PtrSafe Function CreateStreamOnHGlobal Lib "ole32" (ByVal hGlobal As LongPtr, ByVal fDeleteOnRelease As Long, ByRef pStream As IUnknown) As Long
 Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long, ByVal lpMultiByteStr As LongPtr, ByVal cbMultiByte As Long, ByVal lpDefaultChar As LongPtr, ByVal lpUsedDefaultChar As LongPtr) As Long
 Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, ByVal lpMultiByteStr As LongPtr, ByVal cbMultiByte As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long) As Long
+Private Declare PtrSafe Function WinHelp Lib "user32" Alias "WinHelpW" (ByVal hWnd As LongPtr, ByVal lpHelpFile As LongPtr, ByVal wCommand As Long, ByVal dwData As LongPtr) As Long
+Private Declare PtrSafe Function HtmlHelp Lib "hhctrl.ocx" Alias "HtmlHelpW" (ByVal hWndCaller As LongPtr, ByVal lpszFile As LongPtr, ByVal uCommand As Long, ByVal dwData As LongPtr) As LongPtr
 #Else
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByRef Destination As Any, ByRef Source As Any, ByVal Length As Long)
 Private Declare Sub GetSystemTime Lib "kernel32" (ByRef lpSystemTime As SYSTEMTIME)
@@ -245,6 +263,7 @@ Private Declare Function ArrPtr Lib "msvbvm60.dll" Alias "VarPtr" (ByRef Var() A
 Private Declare Function lstrlen Lib "kernel32" Alias "lstrlenW" (ByVal lpString As Long) As Long
 Private Declare Function lstrcpy Lib "kernel32" Alias "lstrcpyW" (ByVal lpString1 As Long, ByVal lpString2 As Long) As Long
 Private Declare Function MessageBoxIndirect Lib "user32" Alias "MessageBoxIndirectW" (ByRef lpMsgBoxParams As MSGBOXPARAMS) As Long
+Private Declare Function MessageBox Lib "user32" Alias "MessageBoxW" (ByVal hWnd As Long, ByVal lpText As Long, ByVal lpCaption As Long, ByVal wType As Long) As Long
 Private Declare Function GetActiveWindow Lib "user32" () As Long
 Private Declare Function GetForegroundWindow Lib "user32" () As Long
 Private Declare Function GetFileAttributes Lib "kernel32" Alias "GetFileAttributesW" (ByVal lpFileName As Long) As Long
@@ -323,18 +342,31 @@ Private Declare Function OleCreatePictureIndirect Lib "oleaut32" (ByRef pPictDes
 Private Declare Function CreateStreamOnHGlobal Lib "ole32" (ByVal hGlobal As Long, ByVal fDeleteOnRelease As Long, ByRef pStream As IUnknown) As Long
 Private Declare Function WideCharToMultiByte Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, ByVal lpWideCharStr As Long, ByVal cchWideChar As Long, ByVal lpMultiByteStr As Long, ByVal cbMultiByte As Long, ByVal lpDefaultChar As Long, ByVal lpUsedDefaultChar As Long) As Long
 Private Declare Function MultiByteToWideChar Lib "kernel32" (ByVal CodePage As Long, ByVal dwFlags As Long, ByVal lpMultiByteStr As Long, ByVal cbMultiByte As Long, ByVal lpWideCharStr As Long, ByVal cchWideChar As Long) As Long
+Private Declare Function WinHelp Lib "user32" Alias "WinHelpW" (ByVal hWnd As Long, ByVal lpHelpFile As Long, ByVal wCommand As Long, ByVal dwData As Long) As Long
+Private Declare Function HtmlHelp Lib "hhctrl.ocx" Alias "HtmlHelpW" (ByVal hWndCaller As Long, ByVal lpszFile As Long, ByVal uCommand As Long, ByVal dwData As Long) As Long
 #End If
+Private MsgBoxHelpData() As HELPDATA, MsgBoxHelpDataCount As Long
 
 ' (VB-Overwrite)
-Public Function MsgBox(ByVal Prompt As String, Optional ByVal Buttons As VbMsgBoxStyle = vbOKOnly, Optional ByVal Title As Variant) As VbMsgBoxResult
+#If VBA7 Then
+Public Function MsgBox(ByVal Prompt As String, Optional ByVal Buttons As VbMsgBoxStyle = vbOKOnly, Optional ByVal Title As Variant, Optional ByVal HelpFile As String, Optional ByVal Context As Long, Optional ByVal ResIcon As Variant, Optional ByVal hWnd As LongPtr) As VbMsgBoxResult
+#Else
+Public Function MsgBox(ByVal Prompt As String, Optional ByVal Buttons As VbMsgBoxStyle = vbOKOnly, Optional ByVal Title As Variant, Optional ByVal HelpFile As String, Optional ByVal Context As Long, Optional ByVal ResIcon As Variant, Optional ByVal hWnd As Long) As VbMsgBoxResult
+#End If
+Const MB_TASKMODAL As Long = &H2000, MB_USERICON As Long = &H80
 Dim MSGBOXP As MSGBOXPARAMS
 With MSGBOXP
 .cbSize = LenB(MSGBOXP)
 If (Buttons And vbSystemModal) = 0 Then
-    If Not Screen.ActiveForm Is Nothing Then
-        .hWndOwner = Screen.ActiveForm.hWnd
+    If (Buttons And MB_TASKMODAL) = 0 Then
+        If hWnd = NULL_PTR Then
+            .hWndOwner = GetActiveWindow()
+            If .hWndOwner = NULL_PTR Then Buttons = Buttons Or MB_TASKMODAL
+        Else
+            .hWndOwner = hWnd
+        End If
     Else
-        .hWndOwner = GetActiveWindow()
+        .hWndOwner = NULL_PTR
     End If
 Else
     .hWndOwner = GetForegroundWindow()
@@ -350,9 +382,86 @@ End If
 If StrPtr(Caption) = NULL_PTR Then Caption = ""
 .lpszCaption = StrPtr(Caption)
 .dwStyle = Buttons
-End With
+If Not IsMissing(ResIcon) Then
+    If (.dwStyle And MB_USERICON) = 0 Then .dwStyle = .dwStyle Or MB_USERICON
+    If VarType(ResIcon) = vbString Then .lpszIcon = StrPtr(ResIcon) Else .lpszIcon = LoWord(ResIcon)
+End If
+Static NextHelpID As Long
+If (Buttons And vbMsgBoxHelpButton) <> 0 And Not HelpFile = vbNullString Then
+    NextHelpID = NextHelpID + 1
+    .dwContextHelpID = NextHelpID
+    .lpfnMsgBoxCallback = ProcPtr(AddressOf MsgBoxCallback)
+    ReDim Preserve MsgBoxHelpData(0 To MsgBoxHelpDataCount) As HELPDATA
+    MsgBoxHelpData(MsgBoxHelpDataCount).ID = NextHelpID
+    MsgBoxHelpData(MsgBoxHelpDataCount).HelpFile = HelpFile
+    MsgBoxHelpData(MsgBoxHelpDataCount).Context = Context
+    MsgBoxHelpDataCount = MsgBoxHelpDataCount + 1
+End If
 MsgBox = MessageBoxIndirect(MSGBOXP)
+If .dwContextHelpID > 0 Then
+    Dim Index As Long
+    For Index = 0 To (MsgBoxHelpDataCount - 1)
+        If MsgBoxHelpData(Index).ID = .dwContextHelpID Then Exit For
+    Next Index
+    If Index < MsgBoxHelpDataCount Then
+        If MsgBoxHelpData(Index).WinHelpHandle <> NULL_PTR Then
+            Const HELP_QUIT As Long = &H2
+            WinHelp MsgBoxHelpData(Index).WinHelpHandle, NULL_PTR, HELP_QUIT, 0
+        End If
+        If MsgBoxHelpData(Index).HtmlHelpCookie <> 0 Then
+            Const HH_UNINITIALIZE As Long = &H1D
+            HtmlHelp NULL_PTR, NULL_PTR, HH_UNINITIALIZE, MsgBoxHelpData(Index).HtmlHelpCookie
+        End If
+        Dim i As Long
+        For i = Index To ((MsgBoxHelpDataCount - 1) - 1)
+            LSet MsgBoxHelpData(i) = MsgBoxHelpData(i + 1)
+        Next i
+        MsgBoxHelpDataCount = MsgBoxHelpDataCount - 1
+        If MsgBoxHelpDataCount > 0 Then
+            ReDim Preserve MsgBoxHelpData(0 To (MsgBoxHelpDataCount - 1)) As HELPDATA
+        Else
+            Erase MsgBoxHelpData()
+        End If
+    End If
+End If
+End With
 End Function
+
+Private Sub MsgBoxCallback(ByRef pHelpInfo As HELPINFO)
+Const HELPINFO_WINDOW As Long = &H1
+With pHelpInfo
+If .ContextType = HELPINFO_WINDOW Then
+    Dim Index As Long
+    For Index = 0 To (MsgBoxHelpDataCount - 1)
+        If MsgBoxHelpData(Index).ID = .dwContextID Then Exit For
+    Next Index
+    If Index < MsgBoxHelpDataCount Then
+        If Not MsgBoxHelpData(Index).HelpFile = vbNullString Then
+            Dim Success As Boolean
+            If LCase$(Right$(MsgBoxHelpData(Index).HelpFile, 4)) = ".hlp" Then
+                Const HELP_INDEX As Long = &H3, HELP_CONTEXT As Long = &H1
+                If MsgBoxHelpData(Index).Context = 0 Then
+                    Success = CBool(WinHelp(.hItemHandle, StrPtr(MsgBoxHelpData(Index).HelpFile), HELP_INDEX, 0) <> 0)
+                Else
+                    Success = CBool(WinHelp(.hItemHandle, StrPtr(MsgBoxHelpData(Index).HelpFile), HELP_CONTEXT, MsgBoxHelpData(Index).Context) <> 0)
+                End If
+                MsgBoxHelpData(Index).WinHelpHandle = .hItemHandle
+            Else
+                Const HH_INITIALIZE As Long = &H1C
+                If MsgBoxHelpData(Index).HtmlHelpCookie = 0 Then HtmlHelp NULL_PTR, NULL_PTR, HH_INITIALIZE, VarPtr(MsgBoxHelpData(Index).HtmlHelpCookie)
+                Const HH_DISPLAY_TOPIC As Long = &H0, HH_HELP_CONTEXT As Long = &HF
+                If MsgBoxHelpData(Index).Context = 0 Then
+                    Success = CBool(HtmlHelp(.hItemHandle, StrPtr(MsgBoxHelpData(Index).HelpFile), HH_DISPLAY_TOPIC, 0) <> 0)
+                Else
+                    Success = CBool(HtmlHelp(.hItemHandle, StrPtr(MsgBoxHelpData(Index).HelpFile), HH_HELP_CONTEXT, MsgBoxHelpData(Index).Context) <> 0)
+                End If
+            End If
+            If Success = False Then MessageBox .hItemHandle, StrPtr("Unable to display help"), NULL_PTR, vbCritical + vbOKOnly
+        End If
+    End If
+End If
+End With
+End Sub
 
 ' (VB-Overwrite)
 Public Sub SendKeys(ByRef Text As String, Optional ByRef Wait As Boolean)
@@ -456,11 +565,7 @@ Else
         End If
         If dwMask = 0 Then
             Dir = Left$(FD.lpszFileName(), InStr(FD.lpszFileName(), vbNullChar) - 1)
-            If FD.dwFileAttributes And vbDirectory Then
-                If Dir <> "." And Dir <> ".." Then Exit Do ' Exclude self and relative path aliases
-            Else
-                Exit Do
-            End If
+            Exit Do ' Accept any matching entry (including "." and "..")
         End If
         If FindNextFile(hFindFile, FD) = 0 Then
             FindClose hFindFile
@@ -1217,8 +1322,13 @@ Public Function KeyPressed(ByVal KeyCode As KeyCodeConstants) As Boolean
 KeyPressed = CBool((GetAsyncKeyState(KeyCode) And &H8000&) = &H8000&)
 End Function
 
+#If TWINBASIC Then
+Public Function InIDE() As Boolean
+InIDE = App.IsInIDE()
+#Else
 Public Function InIDE(Optional ByRef B As Boolean = True) As Boolean
 If B = True Then Debug.Assert Not InIDE(InIDE) Else B = True
+#End If
 End Function
 
 #If VBA7 Then
@@ -1348,13 +1458,16 @@ End Function
 Public Function UTF8_To_UTF16(ByRef Source() As Byte) As String
 If IsArrayInitialized(Source()) = False Then Exit Function
 Const CP_UTF8 As Long = 65001
-Dim Size As Long, Pointer As LongPtr, Length As Long
+Dim Size As Long
 Size = UBound(Source) - LBound(Source) + 1
-Pointer = VarPtr(Source(LBound(Source)))
-Length = MultiByteToWideChar(CP_UTF8, 0, Pointer, Size, NULL_PTR, 0)
-If Length > 0 Then
-    UTF8_To_UTF16 = Space$(Length)
-    MultiByteToWideChar CP_UTF8, 0, Pointer, Size, StrPtr(UTF8_To_UTF16), Length
+If Size > 0 Then
+    Dim Pointer As LongPtr, Length As Long
+    Pointer = VarPtr(Source(LBound(Source)))
+    Length = MultiByteToWideChar(CP_UTF8, 0, Pointer, Size, NULL_PTR, 0)
+    If Length > 0 Then
+        UTF8_To_UTF16 = Space$(Length)
+        MultiByteToWideChar CP_UTF8, 0, Pointer, Size, StrPtr(UTF8_To_UTF16), Length
+    End If
 End If
 End Function
 

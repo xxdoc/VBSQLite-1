@@ -35,13 +35,19 @@ End Enum
 #If VBA7 Then
 Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByRef Destination As Any, ByRef Source As Any, ByVal Length As Long)
 Private Declare PtrSafe Function VarDecFromI8 Lib "oleaut32" (ByVal i64In As Currency, ByRef pDecOut As Variant) As Long
-Private Declare PtrSafe Function VarI8FromDec Lib "oleaut32" (ByRef iDecIn As Variant, ByRef i64Out As Currency) As Long
+Private Declare PtrSafe Function VarI8FromDec Lib "oleaut32" (ByRef pDecIn As Variant, ByRef i64Out As Currency) As Long
+Private Declare PtrSafe Function VarI8FromR8 Lib "oleaut32" (ByVal DblIn As Double, ByRef i64Out As Currency) As Long
+Private Declare PtrSafe Function VarI8FromStr Lib "oleaut32" (ByVal lpStrIn As LongPtr, ByVal LCID As Long, ByVal dwFlags As Long, ByRef i64Out As Currency) As Long
 #Else
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByRef Destination As Any, ByRef Source As Any, ByVal Length As Long)
 Private Declare Function VarDecFromI8 Lib "oleaut32" (ByVal i64In As Currency, ByRef pDecOut As Variant) As Long
-Private Declare Function VarI8FromDec Lib "oleaut32" (ByRef iDecIn As Variant, ByRef i64Out As Currency) As Long
+Private Declare Function VarI8FromDec Lib "oleaut32" (ByRef pDecIn As Variant, ByRef i64Out As Currency) As Long
+Private Declare Function VarI8FromR8 Lib "oleaut32" (ByVal DblIn As Double, ByRef i64Out As Currency) As Long
+Private Declare Function VarI8FromStr Lib "oleaut32" (ByVal lpStrIn As Long, ByVal LCID As Long, ByVal dwFlags As Long, ByRef i64Out As Currency) As Long
 #End If
 Private Const VT_I8 As Integer = &H14
+Private Const DISP_E_TYPEMISMATCH As Long = &H80020005
+Private Const DISP_E_OVERFLOW As Long = &H8002000A
 Private PropHandle As LongPtr
 
 Private Sub Class_Initialize()
@@ -76,48 +82,51 @@ Attribute Version.VB_Description = "Returns the version of the SQLite library."
 Version = SQLiteUTF8PtrToStr(stub_sqlite3_libversion())
 End Property
 
-Public Sub OpenDB(ByVal FileName As String, Optional ByVal Mode As SQLiteOpenMode = SQLiteReadWriteCreate, Optional ByVal SharedCache As Boolean)
+Public Sub OpenDB(ByVal FileName As String, Optional ByVal Mode As SQLiteOpenMode = SQLiteReadWriteCreate, Optional ByVal SharedCache As Boolean, Optional ByVal BusyTimeOut As Double)
 Attribute OpenDB.VB_Description = "Opens the SQLite database connection."
 Select Case Mode
     Case SQLiteReadOnly, SQLiteReadWrite, SQLiteReadWriteCreate
-        If PropHandle <> NULL_PTR Then
-            stub_sqlite3_close_v2 PropHandle
-            PropHandle = NULL_PTR
-        End If
-        Dim FileNameUTF8() As Byte, Flags As Long, Result As Long
-        FileNameUTF8() = UTF16_To_UTF8(FileName & vbNullChar)
-        Flags = SQLITE_OPEN_FULLMUTEX
-        Select Case Mode
-            Case SQLiteReadOnly
-                Flags = Flags Or SQLITE_OPEN_READONLY
-            Case SQLiteReadWrite
-                Flags = Flags Or SQLITE_OPEN_READWRITE
-            Case SQLiteReadWriteCreate
-                Flags = Flags Or SQLITE_OPEN_READWRITE Or SQLITE_OPEN_CREATE
-        End Select
-        If SharedCache = False Then
-            Flags = Flags Or SQLITE_OPEN_PRIVATECACHE
-        Else
-            Flags = Flags Or SQLITE_OPEN_SHAREDCACHE
-        End If
-        Result = stub_sqlite3_open_v2(VarPtr(FileNameUTF8(0)), PropHandle, Flags, NULL_PTR)
-        If Result <> SQLITE_OK Then
-            Dim ErrVal As Long, ErrMsg As String
-            If PropHandle <> NULL_PTR Then
-                ErrVal = stub_sqlite3_errcode(PropHandle)
-                ErrMsg = SQLiteUTF8PtrToStr(stub_sqlite3_errmsg(PropHandle))
-                stub_sqlite3_close_v2 PropHandle
-                PropHandle = NULL_PTR
-            End If
-            Err.Raise Number:=vbObjectError + ErrVal, Description:=ErrMsg
-        Else
-            stub_sqlite3_regexp_init PropHandle, NULL_PTR, NULL_PTR
-            Call SQLiteOverloadBuiltinFunctions(PropHandle)
-            Call SQLiteCreateFunctions(PropHandle)
-        End If
     Case Else
         Err.Raise 380
 End Select
+If BusyTimeOut < 0 Or BusyTimeOut > 2147483.647 Then Err.Raise 380
+If PropHandle <> NULL_PTR Then
+    stub_sqlite3_close_v2 PropHandle
+    PropHandle = NULL_PTR
+End If
+Dim FileNameUTF8() As Byte, Flags As Long, Result As Long
+FileNameUTF8() = UTF16_To_UTF8(FileName & vbNullChar)
+Flags = SQLITE_OPEN_FULLMUTEX
+Select Case Mode
+    Case SQLiteReadOnly
+        Flags = Flags Or SQLITE_OPEN_READONLY
+    Case SQLiteReadWrite
+        Flags = Flags Or SQLITE_OPEN_READWRITE
+    Case SQLiteReadWriteCreate
+        Flags = Flags Or SQLITE_OPEN_READWRITE Or SQLITE_OPEN_CREATE
+End Select
+If SharedCache = False Then
+    Flags = Flags Or SQLITE_OPEN_PRIVATECACHE
+Else
+    Flags = Flags Or SQLITE_OPEN_SHAREDCACHE
+End If
+Result = stub_sqlite3_open_v2(VarPtr(FileNameUTF8(0)), PropHandle, Flags, NULL_PTR)
+If Result <> SQLITE_OK Then
+    Dim ErrVal As Long, ErrMsg As String
+    If PropHandle <> NULL_PTR Then
+        ErrVal = stub_sqlite3_errcode(PropHandle)
+        ErrMsg = SQLiteUTF8PtrToStr(stub_sqlite3_errmsg(PropHandle))
+        stub_sqlite3_close_v2 PropHandle
+        PropHandle = NULL_PTR
+    End If
+    Err.Raise Number:=vbObjectError + ErrVal, Description:=ErrMsg
+Else
+    stub_sqlite3_db_config_fp_digits PropHandle, 15, NULL_PTR
+    stub_sqlite3_regexp_init PropHandle, NULL_PTR, NULL_PTR
+    Call SQLiteOverloadBuiltinFunctions(PropHandle)
+    Call SQLiteCreateFunctions(PropHandle)
+    If BusyTimeOut > 0.0005 Then stub_sqlite3_busy_timeout PropHandle, CLng(Round(BusyTimeOut * 1000#, 3))
+End If
 End Sub
 
 Public Sub CloseDB()
@@ -154,10 +163,17 @@ Else
 End If
 End Property
 
-Public Property Get AffectedRows() As Long
+Public Property Get AffectedRows() As Variant
 Attribute AffectedRows.VB_Description = "Returns the number of rows modified, inserted or deleted by the most recently completed SQL statement. The value returned by this function will not change by read-only SQL statements."
 If PropHandle = NULL_PTR Then Err.Raise Number:=5, Description:="DB connection must be opened before it can be used"
-AffectedRows = stub_sqlite3_changes(PropHandle)
+Dim Int64 As Currency
+Int64 = stub_sqlite3_changes64(PropHandle)
+If Int64 >= -214748.3648@ And Int64 <= 214748.3647@ Then
+    AffectedRows = CLng(Int64 * 10000@)
+Else
+    AffectedRows = CDec(0)
+    VarDecFromI8 Int64, AffectedRows
+End If
 End Property
 
 Public Property Get LastInsertRowID() As Variant
@@ -175,25 +191,31 @@ End Property
 
 Public Property Let LastInsertRowID(ByVal Value As Variant)
 If PropHandle = NULL_PTR Then Err.Raise Number:=5, Description:="DB connection must be opened before it can be used"
-Dim VT As Integer
-VT = VarType(Value)
-Select Case VT
-    Case vbDecimal, vbCurrency, VT_I8, vbLong, vbInteger, vbByte
-        Dim Int64 As Currency
-        Select Case VT
-            Case vbDecimal
-                VarI8FromDec Value, Int64
-            Case vbCurrency
-                Int64 = Value / 10000@
-            Case VT_I8
-                CopyMemory Int64, ByVal UnsignedAdd(VarPtr(Value), 8), 8
-            Case vbLong, vbInteger, vbByte
-                Int64 = Value / 10000@
+Dim Int64 As Currency
+Select Case VarType(Value)
+    Case vbDecimal
+        If VarI8FromDec(Value, Int64) = DISP_E_OVERFLOW Then Err.Raise 6
+    Case vbCurrency
+        Int64 = Value / 10000@
+    Case VT_I8
+        CopyMemory Int64, ByVal UnsignedAdd(VarPtr(Value), 8), 8
+    Case vbLong, vbInteger, vbByte
+        Int64 = Value / 10000@
+    Case vbDouble
+        If VarI8FromR8(Value, Int64) = DISP_E_OVERFLOW Then Err.Raise 6
+    Case vbString
+        Select Case VarI8FromStr(StrPtr(Value), 0, 0, Int64)
+            Case DISP_E_TYPEMISMATCH
+                Err.Raise 13
+            Case DISP_E_OVERFLOW
+                Err.Raise 6
         End Select
-        stub_sqlite3_set_last_insert_rowid PropHandle, Int64
+    Case vbEmpty
+        Int64 = 0@
     Case Else
         Err.Raise 380
 End Select
+stub_sqlite3_set_last_insert_rowid PropHandle, Int64
 End Property
 
 Public Property Get AutoCommit() As Boolean
@@ -213,6 +235,12 @@ Dim SQLUTF8() As Byte, Result As Long
 SQLUTF8() = UTF16_To_UTF8(SQL & vbNullChar)
 Result = stub_sqlite3_exec(PropHandle, VarPtr(SQLUTF8(0)), NULL_PTR, NULL_PTR, NULL_PTR)
 If Result <> SQLITE_OK Then Err.Raise Number:=vbObjectError + stub_sqlite3_errcode(PropHandle), Description:=SQLiteUTF8PtrToStr(stub_sqlite3_errmsg(PropHandle))
+End Sub
+
+Public Sub Cancel()
+Attribute Cancel.VB_Description = "Call this method from another thread to cancel (interrupt) any currently executing SQLite database operation."
+If PropHandle = NULL_PTR Then Err.Raise Number:=5, Description:="DB connection must be opened before it can be used"
+stub_sqlite3_interrupt PropHandle
 End Sub
 
 Public Function OpenDataSet(ByVal SQL As String) As SQLiteDataSet
